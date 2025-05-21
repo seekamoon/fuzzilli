@@ -531,7 +531,6 @@ let v8Profile = Profile(
             "--wasm-staging",
             "--wasm-fast-api",
             "--expose-fast-api",
-            "--experimental-wasm-memory64",
         ]
 
         guard randomize else { return args }
@@ -574,16 +573,8 @@ let v8Profile = Profile(
             args.append("--maglev-future")
         }
 
-        if probability(0.25) && !args.contains("--no-turboshaft") {
-            args.append("--turboshaft-future")
-        }
-
         if probability(0.1) && !args.contains("--no-turboshaft") {
             args.append("--turboshaft-typed-optimizations")
-        }
-
-        if probability(0.1) && !args.contains("--no-turboshaft") {
-            args.append("--turboshaft-from-maglev")
         }
 
         if probability(0.1) && !args.contains("--no-turboshaft") {
@@ -600,10 +591,6 @@ let v8Profile = Profile(
 
         if probability(0.1) {
             args.append("--battery-saver-mode")
-        }
-
-        if probability(0.1) {
-            args.append("--stress-scavenger-pinning-objects-random")
         }
 
         //
@@ -640,7 +627,6 @@ let v8Profile = Profile(
         if probability(0.05) {
             if probability(0.5) { args.append("--stress-gc-during-compilation") }
             if probability(0.5) { args.append("--lazy-new-space-shrinking") }
-            if probability(0.5) { args.append("--const-tracking-let") }
             if probability(0.5) { args.append("--stress-wasm-memory-moving") }
             if probability(0.5) { args.append("--stress-background-compile") }
             if probability(0.5) { args.append("--parallel-compile-tasks-for-lazy") }
@@ -653,7 +639,6 @@ let v8Profile = Profile(
 
             // Maglev related flags
             args.append(probability(0.5) ? "--maglev-inline-api-calls" : "--no-maglev-inline-api-calls")
-            if probability(0.5) { args.append("--maglev-extend-properties-backing-store") }
 
             // Compiler related flags
             args.append(probability(0.5) ? "--always-turbofan" : "--no-always-turbofan")
