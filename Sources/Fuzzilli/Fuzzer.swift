@@ -271,20 +271,20 @@ public class Fuzzer {
                     let percentage = Statistics.percentageOrNa(generator.invocationSuccessRate, 7)
                     let name = generator.name.rightPadded(toLength: nameMaxLength)
                     let invocations = String(format: "%12d", generator.invocationCount)
-                    self.logger.warning("Code generator \(name) might have too restrictive dynamic requirements. Its successful invocation rate is only \(percentage)% after \(invocations) invocations")
+                    self.logger.warning("Code generator \(name) might have too restrictive dynamic requirements. Its successful invocation rate is only \(percentage) after \(invocations) invocations")
                 }
                 if generator.totalSamples >= 100 && generator.correctnessRate! < 0.05 {
                     let name = generator.name.rightPadded(toLength: nameMaxLength)
                     let percentage = Statistics.percentageOrNa(generator.correctnessRate, 7)
                     let totalSamples = String(format: "%10d", generator.totalSamples)
-                    self.logger.warning("Code generator \(name) might be broken. Correctness rate is only \(percentage)% after \(totalSamples) generated samples")
+                    self.logger.warning("Code generator \(name) might be broken. Correctness rate is only \(percentage) after \(totalSamples) generated samples")
                 }
             }
             for template in self.programTemplates {
                 if template.totalSamples >= 100 && template.correctnessRate! < 0.05 {
                     let percentage = Statistics.percentageOrNa(template.correctnessRate, 7)
                     let totalSamples = String(format: "%10d", template.totalSamples)
-                    self.logger.warning("Program template \(template.name) might be broken. Correctness rate is only \(percentage)% after \(totalSamples) generated samples")
+                    self.logger.warning("Program template \(template.name) might be broken. Correctness rate is only \(percentage) after \(totalSamples) generated samples")
                 }
             }
         }
