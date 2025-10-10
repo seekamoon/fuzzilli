@@ -500,4 +500,10 @@ public let ProgramTemplates = [
         // Generate some more random code to (hopefully) use the parsed JSON in some interesting way.
         b.build(n: 25)
     },
+
+    ProgramTemplate("AsyncFunctionFuzzer") { b in
+        // TODO: This template is not working as expected.
+        b.buildPrefix()
+        b.build(n: 100)
+    },
 ]

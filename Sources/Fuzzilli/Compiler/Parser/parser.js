@@ -302,16 +302,60 @@ function parse(script, proto) {
                 return makeStatement('ForInLoop', forInLoop);
             }
             case 'ForOfStatement': {
-                assert(node.left.type === 'VariableDeclaration', "Expected variable declaration as init part of a for-in loop, found " + node.left.type);
-                assert(node.left.declarations.length === 1, "Expected exactly one variable declaration in the init part of a for-in loop");
+                assert(node.left.type === 'VariableDeclaration', "Expected variable declaration as init part of a for-of loop, found " + node.left.type);
+                assert(node.left.declarations.length === 1, "Expected exactly one variable declaration in the init part of a for-of loop");
                 let decl = node.left.declarations[0];
+                assert(decl.init == null, "Expected no initial value for the variable declared as part of a for-of loop")
+                
                 let forOfLoop = {};
-                let initDecl = { name: decl.id.name };
-                assert(decl.init == null, "Expected no initial value for the variable declared as part of a for-in loop")
+                let initDecl;
+                
+                // Check if this uses destructuring
+                if (decl.id.type === 'ArrayPattern') {
+                    // Handle array destructuring: for (const [a, b] of ...)
+                    let indices = [];
+                    let varNames = [];
+                    let hasRestElement = false;
+                    
+                    for (let i = 0; i < decl.id.elements.length; i++) {
+                        let elem = decl.id.elements[i];
+                        if (elem === null) {
+                            // Skip holes in array pattern
+                            continue;
+                        } else if (elem.type === 'RestElement') {
+                            hasRestElement = true;
+                            // Add the rest element's name if it has one
+                            if (elem.argument && elem.argument.type === 'Identifier') {
+                                indices.push(i);
+                                varNames.push(elem.argument.name);
+                            }
+                        } else if (elem.type === 'Identifier') {
+                            indices.push(i);
+                            varNames.push(elem.name);
+                        }
+                    }
+                    
+                    // Create special variable name to signal destructuring to the compiler
+                    // Format: "__destruct:0,1:false:a,b" (indices:hasRestElement:varNames)
+                    let destructInfo = "__destruct:" + indices.join(",") + ":" + hasRestElement + ":" + varNames.join(",");
+                    initDecl = { name: destructInfo };
+                } else if (decl.id.type === 'Identifier') {
+                    // Handle simple identifier: for (const item of ...)
+                    initDecl = { name: decl.id.name };
+                } else {
+                    throw "Unsupported for-of loop left-hand side: " + decl.id.type;
+                }
+                
                 forOfLoop.left = make('VariableDeclarator', initDecl);
                 forOfLoop.right = visitExpression(node.right);
                 forOfLoop.body = visitStatement(node.body);
-                return makeStatement('ForOfLoop', forOfLoop);
+                
+                // Check if this is a for-await-of loop
+                if (node.await === true) {
+                    return makeStatement('ForAwaitOfLoop', forOfLoop);
+                } else {
+                    return makeStatement('ForOfLoop', forOfLoop);
+                }
             }
             case 'BreakStatement': {
               return makeStatement('BreakStatement', {});

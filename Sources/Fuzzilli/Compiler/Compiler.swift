@@ -452,13 +452,92 @@ public class JavaScriptCompiler {
 
             let obj = try compileExpression(forOfLoop.right)
 
-            let loopVar = emit(BeginForOfLoop(), withInputs: [obj]).innerOutput
-            try enterNewScope {
-                map(initializer.name, to: loopVar)
-                try compileBody(forOfLoop.body)
+            // Check if this is a destructuring assignment
+            if initializer.name.starts(with: "__destruct:") {
+                // Parse destructuring info: "__destruct:0,1:false:a,b"
+                let parts = initializer.name.dropFirst("__destruct:".count).split(separator: ":")
+                guard parts.count == 3 else {
+                    throw CompilerError.invalidNodeError("Invalid destructuring format in for-of loop")
+                }
+                
+                let indicesStr = String(parts[0])
+                let hasRestElement = String(parts[1]) == "true"
+                let varNamesStr = String(parts[2])
+                let indices = indicesStr.split(separator: ",").compactMap { Int64($0) }
+                let varNames = varNamesStr.split(separator: ",").map { String($0) }
+                
+                guard !indices.isEmpty && varNames.count == indices.count else {
+                    throw CompilerError.invalidNodeError("Mismatch between indices and variable names in destructuring for-of loop")
+                }
+                
+                let instr = emit(BeginForOfLoopWithDestruct(indices: indices, hasRestElement: hasRestElement), withInputs: [obj])
+                try enterNewScope {
+                    // Map each original variable name to its corresponding output
+                    for (index, outputVar) in instr.innerOutputs.enumerated() {
+                        if index < varNames.count {
+                            map(varNames[index], to: outputVar)
+                        }
+                    }
+                    try compileBody(forOfLoop.body)
+                }
+                emit(EndForOfLoop())
+            } else {
+                // Simple for-of loop without destructuring
+                let loopVar = emit(BeginForOfLoop(), withInputs: [obj]).innerOutput
+                try enterNewScope {
+                    map(initializer.name, to: loopVar)
+                    try compileBody(forOfLoop.body)
+                }
+
+                emit(EndForOfLoop())
             }
 
-            emit(EndForOfLoop())
+        case .forAwaitOfLoop(let forAwaitOfLoop):
+            let initializer = forAwaitOfLoop.left;
+            guard !initializer.hasValue else {
+                throw CompilerError.invalidNodeError("Expected no initial value for the variable declared in a for-await-of loop")
+            }
+            
+            let obj = try compileExpression(forAwaitOfLoop.right)
+
+            // Check if this is a destructuring assignment
+            if initializer.name.starts(with: "__destruct:") {
+                // Parse destructuring info: "__destruct:0,1:false:a,b"
+                let parts = initializer.name.dropFirst("__destruct:".count).split(separator: ":")
+                guard parts.count == 3 else {
+                    throw CompilerError.invalidNodeError("Invalid destructuring format in for-await-of loop")
+                }
+                
+                let indicesStr = String(parts[0])
+                let hasRestElement = String(parts[1]) == "true"
+                let varNamesStr = String(parts[2])
+                let indices = indicesStr.split(separator: ",").compactMap { Int64($0) }
+                let varNames = varNamesStr.split(separator: ",").map { String($0) }
+                
+                guard !indices.isEmpty && varNames.count == indices.count else {
+                    throw CompilerError.invalidNodeError("Mismatch between indices and variable names in destructuring for-await-of loop")
+                }
+                
+                let instr = emit(BeginForAwaitOfLoopWithDestruct(indices: indices, hasRestElement: hasRestElement), withInputs: [obj])
+                try enterNewScope {
+                    // Map each original variable name to its corresponding output
+                    for (index, outputVar) in instr.innerOutputs.enumerated() {
+                        if index < varNames.count {
+                            map(varNames[index], to: outputVar)
+                        }
+                    }
+                    try compileBody(forAwaitOfLoop.body)
+                }
+                emit(EndForAwaitOfLoop())
+            } else {
+                // Simple for-await-of loop without destructuring
+                let loopVar = emit(BeginForAwaitOfLoop(), withInputs: [obj]).innerOutput
+                try enterNewScope {
+                    map(initializer.name, to: loopVar)
+                    try compileBody(forAwaitOfLoop.body)
+                }
+                emit(EndForAwaitOfLoop())
+            }
 
         case .breakStatement:
             // If we're in both .loop and .switch context, then the loop must be the most recent context 

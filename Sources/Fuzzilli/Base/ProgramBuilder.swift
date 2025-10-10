@@ -2884,6 +2884,18 @@ public class ProgramBuilder {
         emit(EndForOfLoop())
     }
 
+    public func buildForAwaitOfLoop(_ obj: Variable, _ body: (Variable) -> ()) {
+        let i = emit(BeginForAwaitOfLoop(), withInputs: [obj]).innerOutput
+        body(i)
+        emit(EndForAwaitOfLoop())
+    }
+
+    public func buildForAwaitOfLoop(_ obj: Variable, selecting indices: [Int64], hasRestElement: Bool = false, _ body: ([Variable]) -> ()) {
+        let instr = emit(BeginForAwaitOfLoopWithDestruct(indices: indices, hasRestElement: hasRestElement), withInputs: [obj])
+        body(Array(instr.innerOutputs))
+        emit(EndForAwaitOfLoop())
+    }
+
     public func buildForOfLoop(_ obj: Variable, selecting indices: [Int64], hasRestElement: Bool = false, _ body: ([Variable]) -> ()) {
         let instr = emit(BeginForOfLoopWithDestruct(indices: indices, hasRestElement: hasRestElement), withInputs: [obj])
         body(Array(instr.innerOutputs))

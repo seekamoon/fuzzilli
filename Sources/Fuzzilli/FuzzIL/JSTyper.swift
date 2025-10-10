@@ -1111,6 +1111,8 @@ public struct JSTyper: Analyzer {
              .beginForInLoop,
              .beginForOfLoop,
              .beginForOfLoopWithDestruct,
+             .beginForAwaitOfLoop,
+             .beginForAwaitOfLoopWithDestruct,
              .beginRepeatLoop,
              .beginCodeString:
             state.startGroupOfConditionallyExecutingBlocks()
@@ -1121,6 +1123,7 @@ public struct JSTyper: Analyzer {
         case .endWhileLoop,
              .endForInLoop,
              .endForOfLoop,
+             .endForAwaitOfLoop,
              .endRepeatLoop,
              .endCodeString:
             state.endGroupOfConditionallyExecutingBlocks(typeChanges: &typeChanges)
@@ -1696,6 +1699,14 @@ public struct JSTyper: Analyzer {
             set(instr.innerOutput, .jsAnything)
 
         case .beginForOfLoopWithDestruct:
+            for v in instr.innerOutputs {
+                set(v, .jsAnything)
+            }
+
+        case .beginForAwaitOfLoop:
+            set(instr.innerOutput, .jsAnything)
+
+        case .beginForAwaitOfLoopWithDestruct:
             for v in instr.innerOutputs {
                 set(v, .jsAnything)
             }

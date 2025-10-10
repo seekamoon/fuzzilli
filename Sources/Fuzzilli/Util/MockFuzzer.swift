@@ -81,7 +81,7 @@ class MockEvaluator: ProgramEvaluator {
 }
 
 /// Create a fuzzer instance usable for testing.
-public func makeMockFuzzer(config maybeConfiguration: Configuration? = nil, engine maybeEngine: FuzzEngine? = nil, runner maybeRunner: ScriptRunner? = nil, environment maybeEnvironment: JavaScriptEnvironment? = nil, evaluator maybeEvaluator: ProgramEvaluator? = nil, corpus maybeCorpus: Corpus? = nil, codeGenerators additionalCodeGenerators : [(CodeGenerator, Int)] = []) -> Fuzzer {
+public func makeMockFuzzer(config maybeConfiguration: Configuration? = nil, engine maybeEngine: FuzzEngine? = nil, runner maybeRunner: ScriptRunner? = nil, environment maybeEnvironment: JavaScriptEnvironment? = nil, evaluator maybeEvaluator: ProgramEvaluator? = nil, corpus maybeCorpus: Corpus? = nil, codeGenerators additionalCodeGenerators : [(CodeGenerator, Int)] = [], onlyUseSpecified: Bool = false) -> Fuzzer {
     dispatchPrecondition(condition: .onQueue(DispatchQueue.main))
 
     // The configuration of this fuzzer.
@@ -115,14 +115,35 @@ public func makeMockFuzzer(config maybeConfiguration: Configuration? = nil, engi
     // Minimizer to minimize crashes and interesting programs.
     let minimizer = Minimizer()
 
-    // Use all builtin CodeGenerators
-    let codeGenerators = WeightedList<CodeGenerator>(
-        (CodeGenerators + WasmCodeGenerators).map {
-            guard let weight = codeGeneratorWeights[$0.name] else {
-                fatalError("Missing weight for code generator \($0.name) in CodeGeneratorWeights.swift")
-            }
-            return ($0, weight)
-        } + additionalCodeGenerators)
+    // // Use all builtin CodeGenerators
+    // let codeGenerators = WeightedList<CodeGenerator>(
+    //     (CodeGenerators + WasmCodeGenerators).map {
+    //         guard let weight = codeGeneratorWeights[$0.name] else {
+    //             fatalError("Missing weight for code generator \($0.name) in CodeGeneratorWeights.swift")
+    //         }
+    //         return ($0, weight)
+    //     } + additionalCodeGenerators)
+    
+    // Use CodeGenerators based on onlyUseSpecified flag
+    let codeGenerators: WeightedList<CodeGenerator>
+    if onlyUseSpecified {
+        // Only use the specified generators
+        codeGenerators = WeightedList<CodeGenerator>(additionalCodeGenerators)
+        print("Creating specialized fuzzer with ONLY these generators:")
+        for (generator, weight) in additionalCodeGenerators {
+            print("  - \(generator.name) (weight: \(weight))")
+        }
+    } else {
+        // Use all default generators plus additional ones
+        codeGenerators = WeightedList<CodeGenerator>(
+            CodeGenerators.map {
+                guard let weight = codeGeneratorWeights[$0.name] else {
+                    fatalError("Missing weight for code generator \($0.name) in CodeGeneratorWeights.swift")
+                }
+                return ($0, weight)
+            } + additionalCodeGenerators)
+        print("Using all default generators plus additional ones")
+    }
 
     // Use all builtin ProgramTemplates
     let programTemplates = WeightedList<ProgramTemplate>(ProgramTemplates.map { return ($0, programTemplateWeights[$0.name]!) })

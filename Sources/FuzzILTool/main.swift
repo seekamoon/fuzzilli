@@ -23,6 +23,20 @@ let jsSuffix = ""
 
 let fuzzILLifter = FuzzILLifter()
 
+// Create a specialized mock fuzzer that only uses specific generators
+func makeMockFuzzerWithOnlySpecificGenerators(_ targetGenerators: [(CodeGenerator, Int)]) -> Fuzzer {
+    // Create configuration  
+    let config = Configuration(logLevel: .warning, enableInspection: true)
+    let environment = JavaScriptEnvironment()
+
+    return makeMockFuzzer(
+        config: config,
+        environment: environment,
+        codeGenerators: targetGenerators,
+        onlyUseSpecified: true
+    )
+}
+
 // Loads a serialized FuzzIL program from the given file
 func loadProgram(from path: String) throws -> Program {
     let data = try Data(contentsOf: URL(fileURLWithPath: path))
@@ -109,6 +123,8 @@ if args["-h"] != nil || args["--help"] != nil || args.numPositionalArguments != 
               --checkCorpus            : Attempts to load all .fzil files in a directory and checks if they are statically valid
               --compile                : Compile the given JavaScript program to a FuzzIL program. Requires node.js
               --generate               : Generate a random program using Fuzzilli's code generators and save it to the specified path.
+              --test-generator <name>  : Test a specific code generator by name (e.g., ForOfLoopGenerator) and save the result.
+              --test-template <name>   : Test a specific program template by name (e.g., AsyncFunctionFuzzer) and save the result.
               --forDifferentialFuzzing : Enable additional features for better support of external differential fuzzing.
           """)
     exit(0)
@@ -148,6 +164,7 @@ else if args.has("--dumpProtobuf") {
 // Pretty print a protobuf as a program on stdout
 else if args.has("--dumpProgram") {
     let program = loadProgramOrExit(from: path)
+    print("Now start dumping program")
     dump(program)
 }
 
@@ -207,6 +224,11 @@ else if args.has("--generate") {
     b.build(n: 50, by: .generating)
     let program = b.finalize()
 
+    let js_program = jsLifter.lift(program, withOptions: .includeComments)
+    // save js_program to a js file
+    let js_program_path = URL(fileURLWithPath: path).deletingPathExtension().appendingPathExtension("js")
+    try js_program.write(to: js_program_path, atomically: false, encoding: String.Encoding.utf8)
+
     print(jsLifter.lift(program, withOptions: .includeComments))
 
     do {
@@ -215,6 +237,116 @@ else if args.has("--generate") {
     } catch {
         print("Failed to store output program to disk: \(error)")
         exit(-1)
+    }
+}
+
+else if args.has("--test-generator") {
+    guard let generatorName = args["--test-generator"] else {
+        print("Error: --test-generator requires a generator name")
+        exit(-1)
+    }
+    
+    // Find the specified generator
+    guard let targetGenerator = CodeGenerators.first(where: { $0.name == generatorName }) else {
+        print("Error: Generator '\(generatorName)' not found")
+        print("Available generators:")
+        for generator in CodeGenerators {
+            print("  - \(generator.name)")
+        }
+        exit(-1)
+    }
+    
+    print("Testing generator: \(targetGenerator.name)")
+    
+    // Create a mock fuzzer with only the specified generator plus essential bootstrapping ones
+    var essentialGenerators = [
+        (CodeGenerators.first(where: { $0.name == "IntegerGenerator" })!, 10),
+        (CodeGenerators.first(where: { $0.name == "ArrayGenerator" })!, 5),
+        (CodeGenerators.first(where: { $0.name == "StringGenerator" })!, 5),
+        (CodeGenerators.first(where: { $0.name == "BooleanGenerator" })!, 5),
+        (CodeGenerators.first(where: { $0.name == "PlainFunctionGenerator" })!, 5),
+    ]
+
+    // Add the target generator with highest weight
+    essentialGenerators.append((targetGenerator, 100))
+
+    // Special handling for generators that require specific contexts
+    if ["AwaitGenerator", "ForAwaitOfLoopGenerator", "ForAwaitOfWithDestructLoopGenerator", "AsyncDisposableVariableGenerator"].contains(targetGenerator.name) {
+        // Add related generators to provide the required async context
+        essentialGenerators.append((CodeGenerators.first(where: { $0.name == "AsyncFunctionGenerator" })!, 500))
+        essentialGenerators.append((CodeGenerators.first(where: { $0.name == "AsyncIteratorGenerator" })!, 500))
+        essentialGenerators.append((CodeGenerators.first(where: { $0.name == "AsyncArrowFunctionGenerator" })!, 500))
+        essentialGenerators.append((CodeGenerators.first(where: { $0.name == "AsyncGeneratorFunctionGenerator" })!, 500))
+        print("Note: \(targetGenerator.name) requires async context")
+    } else if ["YieldGenerator", "YieldEachGenerator"].contains(targetGenerator.name) {
+        // Add related generators for generator-related contexts
+        essentialGenerators.append((CodeGenerators.first(where: { $0.name == "GeneratorFunctionGenerator" })!, 500))
+        essentialGenerators.append((CodeGenerators.first(where: { $0.name == "AsyncGeneratorFunctionGenerator" })!, 500))
+        print("Note: \(targetGenerator.name) might require generator context")
+    }
+    
+    let fuzzer = makeMockFuzzerWithOnlySpecificGenerators(essentialGenerators)
+    
+    let b = fuzzer.makeBuilder()
+    b.buildPrefix()
+    
+    // Try multiple times to increase chances of using the target generator
+    var generatedPrograms: [Program] = []
+    for i in 0..<30 {
+        print("Attempt \(i + 1)/30...")
+        let builder = fuzzer.makeBuilder()
+        builder.buildPrefix()
+        
+        // Try to generate code using the specific generator
+        builder.build(n: 20)
+        let program = builder.finalize()
+        generatedPrograms.append(program)
+        
+        let jsCode = jsLifter.lift(program, withOptions: .includeComments)
+        print("Generated JavaScript code:")
+        print(jsCode)
+        print("\n" + String(repeating: "=", count: 50) + "\n")
+    }
+}
+
+else if args.has("--test-template") {
+    guard let templateName = args["--test-template"] else {
+        print("Error: --test-template requires a template name")
+        exit(-1)
+    }
+    
+    // Find the specified template
+    guard let targetTemplate = ProgramTemplates.first(where: { $0.name == templateName }) else {
+        print("Error: Template '\(templateName)' not found")
+        print("Available templates:")
+        for template in ProgramTemplates {
+            print("  - \(template.name)")
+        }
+        exit(-1)
+    }
+    
+    print("Testing template: \(targetTemplate.name)")
+    
+    // Create a mock fuzzer with default generators but forced to use specific template
+    let fuzzer = makeMockFuzzer(config: Configuration(logLevel: .warning, enableInspection: true), environment: JavaScriptEnvironment())
+    
+    // Generate multiple programs using the target template
+    for i in 0..<5 {
+        print("Generating program \(i + 1)/5 using template \(templateName)...")
+        
+        let b = fuzzer.makeBuilder()
+        
+        // Directly use the target template to generate the program
+        targetTemplate.generate(in: b)
+        
+        let program = b.finalize()
+        let jsCode = jsLifter.lift(program, withOptions: .includeComments)
+        
+        print("Generated JavaScript code:")
+        print(String(repeating: "=", count: 60))
+        print(jsCode)
+        print(String(repeating: "=", count: 60))
+        print()
     }
 }
 

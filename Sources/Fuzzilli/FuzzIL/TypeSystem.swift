@@ -131,6 +131,9 @@ public struct ILType: Hashable {
     /// A type that can be iterated over, such as an array or a generator.
     public static let iterable  = ILType(definiteType: .iterable)
 
+    /// A type that can be iterated over asynchronously, such as an async generator or custom async iterator.
+    public static let asyncIterable = ILType(definiteType: .asyncIterable)
+
     /// The type that subsumes all others (in js).
     public static let jsAnything  = ILType(definiteType: .nothing, possibleType: .jsAnything)
 
@@ -1109,39 +1112,40 @@ struct BaseType: OptionSet, Hashable {
     static let constructor = BaseType(rawValue: 1 << 9)
     static let unboundFunction = BaseType(rawValue: 1 << 10)
     static let iterable    = BaseType(rawValue: 1 << 11)
+    static let asyncIterable = BaseType(rawValue: 1 << 12)
 
     // Wasm Types
-    static let wasmi32     = BaseType(rawValue: 1 << 12)
-    static let wasmi64     = BaseType(rawValue: 1 << 13)
-    static let wasmf32     = BaseType(rawValue: 1 << 14)
-    static let wasmf64     = BaseType(rawValue: 1 << 15)
+    static let wasmi32     = BaseType(rawValue: 1 << 13)
+    static let wasmi64     = BaseType(rawValue: 1 << 14)
+    static let wasmf32     = BaseType(rawValue: 1 << 15)
+    static let wasmf64     = BaseType(rawValue: 1 << 16)
 
     // These are wasm internal types, these are never lifted as such and are only used to glue together dataflow in wasm.
-    static let label       = BaseType(rawValue: 1 << 16)
+    static let label       = BaseType(rawValue: 1 << 17)
     // Any catch block exposes such a label now to rethrow the exception caught by that catch.
     // Note that in wasm the label is actually the try block's label but as rethrows are only possible inside a catch
     // block, semantically having a label on the catch makes more sense.
-    static let exceptionLabel = BaseType(rawValue: 1 << 17)
+    static let exceptionLabel = BaseType(rawValue: 1 << 18)
     // This is a reference to a table, which can be passed around to table instructions
     // The lifter will resolve this to the proper index when lifting.
-    static let wasmSimd128     = BaseType(rawValue: 1 << 18)
-    static let wasmFunctionDef = BaseType(rawValue: 1 << 19)
+    static let wasmSimd128     = BaseType(rawValue: 1 << 19)
+    static let wasmFunctionDef = BaseType(rawValue: 1 << 20)
 
     // Wasm-gc types
-    static let wasmRef = BaseType(rawValue: 1 << 20)
-    static let wasmTypeDef = BaseType(rawValue: 1 << 21)
+    static let wasmRef = BaseType(rawValue: 1 << 21)
+    static let wasmTypeDef = BaseType(rawValue: 1 << 22)
 
     // Wasm packed types. These types only exist as part of struct / array definitions. A wasm value
     // can never have the type i8 or i16 (they will always be extended to i32 by any operation
     // loading them.)
-    static let wasmPackedI8 = BaseType(rawValue: 1 << 22)
-    static let wasmPackedI16 = BaseType(rawValue: 1 << 23)
+    static let wasmPackedI8 = BaseType(rawValue: 1 << 23)
+    static let wasmPackedI16 = BaseType(rawValue: 1 << 24)
 
-    static let jsAnything    = BaseType([.undefined, .integer, .float, .string, .boolean, .object, .function, .constructor, .unboundFunction, .bigint, .regexp, .iterable])
+    static let jsAnything    = BaseType([.undefined, .integer, .float, .string, .boolean, .object, .function, .constructor, .unboundFunction, .bigint, .regexp, .iterable, .asyncIterable])
 
     static let wasmAnything = BaseType([.wasmf32, .wasmi32, .wasmf64, .wasmi64, .wasmRef, .wasmSimd128, .wasmTypeDef, .wasmFunctionDef])
 
-    static let allBaseTypes: [BaseType] = [.undefined, .integer, .float, .string, .boolean, .object, .function, .constructor, .unboundFunction, .bigint, .regexp, .iterable, .wasmf32, .wasmi32, .wasmf64, .wasmi64, .wasmRef, .wasmSimd128, .wasmTypeDef, .wasmFunctionDef]
+    static let allBaseTypes: [BaseType] = [.undefined, .integer, .float, .string, .boolean, .object, .function, .constructor, .unboundFunction, .bigint, .regexp, .iterable, .asyncIterable, .wasmf32, .wasmi32, .wasmf64, .wasmi64, .wasmRef, .wasmSimd128, .wasmTypeDef, .wasmFunctionDef]
 }
 
 class TypeExtension: Hashable {

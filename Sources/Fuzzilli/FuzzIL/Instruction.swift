@@ -1016,6 +1016,15 @@ extension Instruction: ProtobufConvertible {
                 }
             case .endForOfLoop:
                 $0.endForOfLoop = Fuzzilli_Protobuf_EndForOfLoop()
+            case .beginForAwaitOfLoop:
+                $0.beginForAwaitOfLoop = Fuzzilli_Protobuf_BeginForAwaitOfLoop()
+            case .beginForAwaitOfLoopWithDestruct(let op):
+                $0.beginForAwaitOfLoopWithDestruct = Fuzzilli_Protobuf_BeginForAwaitOfLoopWithDestruct.with {
+                    $0.indices = op.indices.map({ Int32($0) })
+                    $0.hasRestElement_p = op.hasRestElement
+                }
+            case .endForAwaitOfLoop:
+                $0.endForAwaitOfLoop = Fuzzilli_Protobuf_EndForAwaitOfLoop()
             case .beginRepeatLoop(let op):
                 $0.beginRepeatLoop = Fuzzilli_Protobuf_BeginRepeatLoop.with {
                     $0.iterations = Int64(op.iterations)
@@ -2127,6 +2136,12 @@ extension Instruction: ProtobufConvertible {
             op = BeginForOfLoopWithDestruct(indices: p.indices.map({ Int64($0) }), hasRestElement: p.hasRestElement_p)
         case .endForOfLoop:
             op = EndForOfLoop()
+        case .beginForAwaitOfLoop:
+            op = BeginForAwaitOfLoop()
+        case .beginForAwaitOfLoopWithDestruct(let p):
+            op = BeginForAwaitOfLoopWithDestruct(indices: p.indices.map({ Int64($0) }), hasRestElement: p.hasRestElement_p)
+        case .endForAwaitOfLoop:
+            op = EndForAwaitOfLoop()
         case .beginRepeatLoop(let p):
             op = BeginRepeatLoop(iterations: Int(p.iterations), exposesLoopCounter: p.exposesLoopCounter)
         case .endRepeatLoop:

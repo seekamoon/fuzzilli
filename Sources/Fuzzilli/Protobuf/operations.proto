@@ -753,6 +753,17 @@ message BeginForOfLoopWithDestruct {
 message EndForOfLoop {
 }
 
+message BeginForAwaitOfLoop {
+}
+
+message BeginForAwaitOfLoopWithDestruct {
+    repeated int32 indices = 1;
+    bool hasRestElement = 2;
+}
+
+message EndForAwaitOfLoop {
+}
+
 message BeginRepeatLoop {
     int64 iterations = 1;
     bool exposesLoopCounter = 2;

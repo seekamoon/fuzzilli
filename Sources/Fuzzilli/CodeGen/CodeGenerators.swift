@@ -865,7 +865,10 @@ public let CodeGenerators: [CodeGenerator] = [
             }
             b.doReturn(b.randomJsVariable())
         }
-        b.callFunction(f, withArgs: b.randomArguments(forCalling: f))
+        // Call the async generator function to get an async iterable
+        let asyncIterable = b.callFunction(f, withArgs: b.randomArguments(forCalling: f))
+        // Mark the result as async iterable so it can be used in for await...of
+        b.setType(ofVariable: asyncIterable, to: .asyncIterable + .object())
     },
 
     CodeGenerator("PropertyRetrievalGenerator", inputs: .preferred(.object())) { b, obj in
@@ -1501,6 +1504,31 @@ public let CodeGenerators: [CodeGenerator] = [
         }
     },
 
+    RecursiveCodeGenerator("ForAwaitOfLoopGenerator", inContext: .asyncFunction, inputs: .preferred(.asyncIterable | .iterable)) { b, obj in
+        assert(b.context.contains(.asyncFunction))
+        b.buildForAwaitOfLoop(obj) { _ in
+            b.buildRecursive()
+        }
+    },
+
+    RecursiveCodeGenerator("ForAwaitOfWithDestructLoopGenerator", inContext: .asyncFunction, inputs: .preferred(.asyncIterable | .iterable)) { b, obj in
+        assert(b.context.contains(.asyncFunction))
+        var indices: [Int64] = []
+        for idx in 0..<Int64.random(in: 1..<5) {
+            withProbability(0.8) {
+                indices.append(idx)
+            }
+        }
+
+        if indices.isEmpty {
+            indices = [0]
+        }
+
+        b.buildForAwaitOfLoop(obj, selecting: indices, hasRestElement: probability(0.2)) { _ in
+            b.buildRecursive()
+        }
+    },
+
     RecursiveCodeGenerator("RepeatLoopGenerator") { b in
         let numIterations = Int.random(in: 2...100)
         b.buildRepeatLoop(n: numIterations) { _ in
@@ -1881,6 +1909,41 @@ public let CodeGenerators: [CodeGenerator] = [
 
         // Manually mark the object as iterable as our static type inference cannot determine that.
         b.setType(ofVariable: iterableObject, to: .iterable + .object())
+    },
+
+    CodeGenerator("AsyncIteratorGenerator") { b in
+        let Symbol = b.createNamedVariable(forBuiltin: "Symbol")
+        b.hide(Symbol)
+        let asyncIteratorSymbol = b.getProperty("asyncIterator", of: Symbol)
+        b.hide(asyncIteratorSymbol)
+        let asyncIterableObject = b.buildObjectLiteral { obj in
+            obj.addComputedMethod(asyncIteratorSymbol, with: .parameters(n: 0)) { _ in
+                let counter = b.loadInt(10)
+                let asyncIterator = b.buildObjectLiteral { obj in
+                    obj.addMethod("next", with: .parameters(n: 0)) { _ in
+                        // Create a Promise that resolves to the iterator result
+                        let Promise = b.createNamedVariable(forBuiltin: "Promise")
+                        let promise = b.buildPlainFunction(with: .parameters(n: 2)) { args in
+                            let resolve = args[0]
+                            let reject = args[1]
+                            b.unary(.PostDec, counter)
+                            let done = b.compare(counter, with: b.loadInt(0), using: .equal)
+                            let result = b.buildObjectLiteral { obj in
+                                obj.addProperty("done", as: done)
+                                obj.addProperty("value", as: counter)
+                            }
+                            b.callFunction(resolve, withArgs: [result])
+                        }
+                        let promiseInstance = b.construct(Promise, withArgs: [promise])
+                        b.doReturn(promiseInstance)
+                    }
+                }
+                b.doReturn(asyncIterator)
+            }
+        }
+
+        // Manually mark the object as async iterable
+        b.setType(ofVariable: asyncIterableObject, to: .asyncIterable + .object())
     },
 
     CodeGenerator("LoadNewTargetGenerator", inContext: .subroutine) { b in

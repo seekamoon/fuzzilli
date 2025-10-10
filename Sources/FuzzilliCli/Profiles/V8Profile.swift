@@ -569,6 +569,7 @@ let v8Profile = Profile(
             "--wasm-fast-api",
             "--expose-fast-api",
             "--experimental-wasm-exnref",
+            "--turbolev",
         ]
 
         guard randomize else { return args }
@@ -618,9 +619,9 @@ let v8Profile = Profile(
             args.append("--turboshaft-typed-optimizations")
         }
 
-        if probability(0.1) {
-            args.append("--turbolev")
-        }
+        // if probability(0.1) {
+        //     args.append("--turbolev")
+        // }
 
         if probability(0.1) {
             args.append("--turboshaft_wasm_in_js_inlining")
