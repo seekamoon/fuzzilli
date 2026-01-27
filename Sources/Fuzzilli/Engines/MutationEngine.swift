@@ -45,10 +45,13 @@ public class MutationEngine: FuzzEngine {
     /// This ensures that samples will be mutated multiple times as long
     /// as the intermediate results do not cause a runtime exception.
     public override func fuzzOne(_ group: DispatchGroup) {
+        // Get a random seed from the corpus for mutation
         var parent = fuzzer.corpus.randomElementForMutating()
+        // Get required targets (if pre-target seed, then it is nil, else it is the set of targets reached by the seed)
+        let requiredTargets = (fuzzer.corpus as? AFLGoCorpus)?.getCurrentRequiredTargets()
         parent = prepareForMutating(parent)
         for _ in 0..<numConsecutiveMutations {
-            // TODO: factor out code shared with the HybridEngine?
+            // Pick a random mutator
             var mutator = fuzzer.mutators.randomElement()
             let maxAttempts = 10
             var mutatedProgram: Program? = nil
@@ -67,12 +70,26 @@ public class MutationEngine: FuzzEngine {
             }
 
             guard let program = mutatedProgram else {
-                logger.warning("Could not mutate sample, giving up. Sample:\n\(FuzzILLifter().lift(parent))")
+                logger.warning(
+                    "Could not mutate sample, giving up. Sample:\n\(FuzzILLifter().lift(parent))")
                 continue
             }
 
             assert(program !== parent)
+
+            // For post-target seeds, reject programs that lose reachability
+            if let targets = requiredTargets, !targets.isEmpty {
+                if let distEvaluator = fuzzer.evaluator as? ProgramDistanceEvaluator {
+                    distEvaluator.setRequiredTargets(targets)
+                }
+            }
+
             let outcome = execute(program)
+
+            // Clear required targets after execution
+            if let distEvaluator = fuzzer.evaluator as? ProgramDistanceEvaluator {
+                distEvaluator.clearRequiredTargets()
+            }
 
             // Mutate the program further if it succeeded.
             if .succeeded == outcome {

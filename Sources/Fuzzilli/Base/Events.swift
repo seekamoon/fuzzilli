@@ -61,6 +61,9 @@ public class Events {
     /// Signals that a new interesting program has been found, after the program has been minimized.
     public let InterestingProgramFound = Event<(program: Program, origin: ProgramOrigin)>()
 
+    /// Signals that minimization finished. Payload contains convergence success and iteration count.
+    public let MinimizationFinished = Event<(success: Bool, iterations: Int)>()
+
     /// Signals a diagnostics event
     public let DiagnosticsEvent = Event<(name: String, content: Data)>()
 

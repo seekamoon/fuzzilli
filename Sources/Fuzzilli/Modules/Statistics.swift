@@ -18,6 +18,9 @@ public class Statistics: Module {
     /// The data just for this instance.
     private var ownData = Fuzzilli_Protobuf_Statistics()
 
+    /// The fuzzer instance.
+    private unowned var fuzzer: Fuzzer!
+
     /// Logger used to print some internal statistics in regular intervals.
     private let logger = Logger(withLabel: "Statistics")
 
@@ -56,6 +59,13 @@ public class Statistics: Module {
     /// Moving average of the number of timeouts in the last 1000 generated programs.
     private var timeoutRate = MovingAverage(n: 1000)
 
+    /// Moving average of minimization successes over the last 1000 minimizations.
+    private var minimizationSuccessRate = MovingAverage(n: 1000)
+
+    /// Moving average of minimization iterations over the last 1000 minimizations.
+    private var minimizationIterationAvg = MovingAverage(n: 1000)
+
+
     /// All data from connected nodes.
     private var nodes = [UUID: Fuzzilli_Protobuf_Statistics]()
 
@@ -85,6 +95,23 @@ public class Statistics: Module {
         ownData.minimizationOverhead = minimizationOverheadAvg.currentValue
         ownData.correctnessRate = correctnessRate.currentValue
         ownData.timeoutRate = timeoutRate.currentValue
+        ownData.minimizationSuccessRate = minimizationSuccessRate.currentValue
+        ownData.minimizationIterationAvg = minimizationIterationAvg.currentValue
+
+        if let aflgoCorpus = fuzzer.corpus as? AFLGoCorpus {
+            ownData.targetReachingSamples = UInt64(
+                aflgoCorpus.getTargetReachingCount().values.reduce(0, +))
+            ownData.avgPreTargetSeeds = Double(aflgoCorpus.getLengthOfPreTargetSeeds())
+            ownData.avgPostTargetSeeds = Double(aflgoCorpus.getLengthOfPostTargetSeeds())
+            ownData.avgPreTargetSeedAge = aflgoCorpus.getAvgAgeOfPreTargetSeeds()
+            ownData.maxPreTargetSeedAge = UInt64(aflgoCorpus.getMaxAgeOfPreTargetSeeds())
+            ownData.minPreTargetSeedAge = UInt64(aflgoCorpus.getMinAgeOfPreTargetSeeds())
+            ownData.midPreTargetSeedAge = UInt64(aflgoCorpus.getMidAgeOfPreTargetSeeds())
+            ownData.avgPostTargetSeedAge = aflgoCorpus.getAvgAgeOfPostTargetSeeds()
+            ownData.maxPostTargetSeedAge = UInt64(aflgoCorpus.getMaxAgeOfPostTargetSeeds())
+            ownData.minPostTargetSeedAge = UInt64(aflgoCorpus.getMinAgeOfPostTargetSeeds())
+            ownData.midPostTargetSeedAge = UInt64(aflgoCorpus.getMidAgeOfPostTargetSeeds())
+        }
 
         // Compute global statistics data
         var data = ownData
@@ -95,6 +122,7 @@ public class Statistics: Module {
             data.validSamples += node.validSamples
             data.timedOutSamples += node.timedOutSamples
             data.totalExecs += node.totalExecs
+            data.targetReachingSamples += node.targetReachingSamples
 
             if !inactiveNodes.contains(id) {
                 // Add fields that only have meaning for active nodes
@@ -113,6 +141,23 @@ public class Statistics: Module {
                 data.minimizationOverhead += node.minimizationOverhead * numNodesRepresentedByData
                 data.correctnessRate += node.correctnessRate * numNodesRepresentedByData
                 data.timeoutRate += node.timeoutRate * numNodesRepresentedByData
+                data.minimizationSuccessRate += node.minimizationSuccessRate * numNodesRepresentedByData
+                data.minimizationIterationAvg += node.minimizationIterationAvg * numNodesRepresentedByData
+                data.avgPreTargetSeeds += node.avgPreTargetSeeds * numNodesRepresentedByData
+                data.avgPostTargetSeeds += node.avgPostTargetSeeds * numNodesRepresentedByData
+                data.avgPreTargetSeedAge += node.avgPreTargetSeedAge * numNodesRepresentedByData
+                data.avgPostTargetSeedAge += node.avgPostTargetSeedAge * numNodesRepresentedByData
+                data.midPreTargetSeedAge +=
+                    node.midPreTargetSeedAge * UInt64(numNodesRepresentedByData)
+                data.midPostTargetSeedAge +=
+                    node.midPostTargetSeedAge * UInt64(numNodesRepresentedByData)
+
+                data.maxPreTargetSeedAge = max(data.maxPreTargetSeedAge, node.maxPreTargetSeedAge)
+                data.minPreTargetSeedAge = min(data.minPreTargetSeedAge, node.minPreTargetSeedAge)
+                data.maxPostTargetSeedAge = max(
+                    data.maxPostTargetSeedAge, node.maxPostTargetSeedAge)
+                data.minPostTargetSeedAge = min(
+                    data.minPostTargetSeedAge, node.minPostTargetSeedAge)
             }
 
             // All other fields are already indirectly synchronized (e.g. number of interesting samples founds)
@@ -128,11 +173,20 @@ public class Statistics: Module {
         data.minimizationOverhead /= totalNumberOfNodes
         data.correctnessRate /= totalNumberOfNodes
         data.timeoutRate /= totalNumberOfNodes
+        data.minimizationSuccessRate /= totalNumberOfNodes
+        data.minimizationIterationAvg /= totalNumberOfNodes
+        data.avgPreTargetSeeds /= totalNumberOfNodes
+        data.avgPostTargetSeeds /= totalNumberOfNodes
+        data.avgPreTargetSeedAge /= totalNumberOfNodes
+        data.avgPostTargetSeedAge /= totalNumberOfNodes
+        data.midPreTargetSeedAge /= UInt64(totalNumberOfNodes)
+        data.midPostTargetSeedAge /= UInt64(totalNumberOfNodes)
 
         return data
     }
 
     public func initialize(with fuzzer: Fuzzer) {
+        self.fuzzer = fuzzer
         fuzzer.registerEventListener(for: fuzzer.events.CrashFound) { _ in
             self.ownData.crashingSamples += 1
         }
@@ -180,6 +234,10 @@ public class Statistics: Module {
             self.ownData.coverage = fuzzer.evaluator.currentScore
             self.corpusProgramSizeAvg.add(ev.program.size)
             self.corpusSize = fuzzer.corpus.size
+        }
+        fuzzer.registerEventListener(for: fuzzer.events.MinimizationFinished) { success, iterations in
+            self.minimizationSuccessRate.add(success ? 1.0 : 0.0)
+            self.minimizationIterationAvg.add(Double(iterations))
         }
         fuzzer.registerEventListener(for: fuzzer.events.ProgramGenerated) { program in
             self.ownData.totalSamples += 1

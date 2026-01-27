@@ -90,12 +90,12 @@ class TerminalUI {
                     print()
                 }
 
-                // Randomly sample generated and interesting programs and print them.
-                // The goal of this is to give users a better "feeling" for what the fuzzer is currently doing.
-                fuzzer.timers.scheduleTask(every: 5 * Minutes) {
-                    self.printNextInterestingProgram = true
-                    self.printNextGeneratedProgram = true
-                }
+                // // Randomly sample generated and interesting programs and print them.
+                // // The goal of this is to give users a better "feeling" for what the fuzzer is currently doing.
+                // fuzzer.timers.scheduleTask(every: 5 * Minutes) {
+                //     self.printNextInterestingProgram = true
+                //     self.printNextGeneratedProgram = true
+                // }
             }
         }
     }
@@ -119,6 +119,96 @@ class TerminalUI {
         let timeSinceLastInterestingProgram = -lastInterestingProgramFound.timeIntervalSinceNow
 
         let maybeAvgCorpusSize = stats.numChildNodes > 0 ? " (global average: \(Int(stats.avgCorpusSize)))" : ""
+        let minimizationSuccessRateGlobal = String(format: "%.2f%%", stats.minimizationSuccessRate * 100)
+        let minimizationIterationAvg = String(format: "%.2f", stats.minimizationIterationAvg)
+
+        // Get per-target statistics
+        var distanceGuidanceType = "N/A"
+        var numTotalTargets: Int = 0
+        var targetReachedCounts: [UInt32: UInt32] = [:]
+        var numReachedTargets: Int = 0
+        var targetReachingProgress = "N/A"
+        var targetReachingCountInfo = "N/A"
+
+        var perTargetReachingCountInfo = "N/A"
+        var perTargetSelectionCountInfo = "N/A"
+        var perTargetReachingTimeInfo = ""
+
+        if let aflgoCorpus = fuzzer.corpus as? AFLGoCorpus {
+            distanceGuidanceType =
+                aflgoCorpus.guidedByTargetSpecificDistance ? "Target-Specific" : "Harmonic"
+            numTotalTargets = aflgoCorpus.getNumTotalTargets()
+            targetReachedCounts = aflgoCorpus.getTargetReachingCount()
+            numReachedTargets = targetReachedCounts.count
+            targetReachingProgress = "\(numReachedTargets)/\(numTotalTargets)"
+            if !targetReachedCounts.isEmpty {
+                // get the total reaching count for all targets
+                targetReachingCountInfo =
+                    "\(targetReachedCounts.values.reduce(0, +)) (global: \(stats.targetReachingSamples))"
+
+                let sortedTargets = targetReachedCounts.keys.sorted()
+                let targetStrings = sortedTargets.map { "T\($0):\(targetReachedCounts[$0]!)" }
+                perTargetReachingCountInfo = " (\(targetStrings.joined(separator: ", ")))"
+            }
+
+            let targetReachingTimes = aflgoCorpus.getFirstTargetReachingTime()
+            for (targetId, timeMs) in targetReachingTimes.enumerated() {
+                if timeMs == 0 {
+                    perTargetReachingTimeInfo += "[T\(targetId): N/A] "
+                } else {
+                    let timeInHours = Double(timeMs) / 3600000.0
+                    perTargetReachingTimeInfo +=
+                        "[T\(targetId): \(String(format: "%.4f", timeInHours))h] "
+                }
+            }
+            let targetSelectionCounts = aflgoCorpus.getTargetSelectionCount()
+            if !targetSelectionCounts.isEmpty {
+                let sortedTargets = targetSelectionCounts.keys.sorted()
+                let targetStrings = sortedTargets.map { "T\($0):\(targetSelectionCounts[$0]!)" }
+                perTargetSelectionCountInfo = " (\(targetStrings.joined(separator: ", ")))"
+            }
+        }
+
+        var preTargetSeedsCount = "N/A"
+        var postTargetSeedsCount = "N/A"
+        var avgPreTargetSeedAge = "N/A"
+        var avgPostTargetSeedAge = "N/A"
+        var maxPreTargetSeedAge = "N/A"
+        var maxPostTargetSeedAge = "N/A"
+        var minPreTargetSeedAge = "N/A"
+        var minPostTargetSeedAge = "N/A"
+        var midPreTargetSeedAge = "N/A"
+        var midPostTargetSeedAge = "N/A"
+        var cleanupStats = "N/A"
+        var mutationSelectionStats = "N/A"
+        if let aflgoCorpus = fuzzer.corpus as? AFLGoCorpus {
+            let maybeAvgPreTargetSeeds =
+                stats.numChildNodes > 0 ? " (global average: \(Int(stats.avgPreTargetSeeds)))" : ""
+            let maybeAvgPostTargetSeeds =
+                stats.numChildNodes > 0 ? " (global average: \(Int(stats.avgPostTargetSeeds)))" : ""
+            preTargetSeedsCount =
+                "\(aflgoCorpus.getLengthOfPreTargetSeeds())\(maybeAvgPreTargetSeeds)"
+            postTargetSeedsCount =
+                "\(aflgoCorpus.getLengthOfPostTargetSeeds())\(maybeAvgPostTargetSeeds)"
+
+            avgPreTargetSeedAge = String(format: "%.2f", stats.avgPreTargetSeedAge)
+            avgPostTargetSeedAge = String(format: "%.2f", stats.avgPostTargetSeedAge)
+            maxPreTargetSeedAge = String(stats.maxPreTargetSeedAge)
+            maxPostTargetSeedAge = String(stats.maxPostTargetSeedAge)
+            minPreTargetSeedAge = String(stats.minPreTargetSeedAge)
+            minPostTargetSeedAge = String(stats.minPostTargetSeedAge)
+            midPreTargetSeedAge = String(stats.midPreTargetSeedAge)
+            midPostTargetSeedAge = String(stats.midPostTargetSeedAge)
+
+            let (cleanupCount, removedPreTargetSeeds, removedPostTargetSeeds) =
+                aflgoCorpus.getCleanupStats()
+            cleanupStats =
+                "Runs: \(cleanupCount), Removed Pre: \(removedPreTargetSeeds), Removed Post: \(removedPostTargetSeeds)"
+
+            let (preTargetSelection, postTargetSelection) = aflgoCorpus.getMutationSelectionStats()
+            mutationSelectionStats =
+                "Pre-Target: \(preTargetSelection), Post-Target: \(postTargetSelection)"
+        }
 
         if let tag = fuzzer.config.tag {
             print("Fuzzer Statistics (tag: \(tag))")
@@ -126,28 +216,42 @@ class TerminalUI {
             print("Fuzzer Statistics")
         }
         print("""
-        -----------------
-        Fuzzer state:                 \(state)
-        Uptime:                       \(formatTimeInterval(fuzzer.uptime()))
-        Total Samples:                \(stats.totalSamples)
-        Interesting Samples Found:    \(stats.interestingSamples)
-        Last Interesting Sample:      \(formatTimeInterval(timeSinceLastInterestingProgram))
-        Valid Samples Found:          \(stats.validSamples)
-        Corpus Size:                  \(fuzzer.corpus.size)\(maybeAvgCorpusSize)
-        Correctness Rate:             \(String(format: "%.2f%%", stats.correctnessRate * 100)) (overall: \(String(format: "%.2f%%", stats.overallCorrectnessRate * 100)))
-        Timeout Rate:                 \(String(format: "%.2f%%", stats.timeoutRate * 100)) (overall: \(String(format: "%.2f%%", stats.overallTimeoutRate * 100)))
-        Crashes Found:                \(stats.crashingSamples)
-        Timeouts Hit:                 \(stats.timedOutSamples)
-        Coverage:                     \(String(format: "%.2f%%", stats.coverage * 100))
-        Avg. program size:            \(String(format: "%.2f", stats.avgProgramSize))
-        Avg. corpus program size:     \(String(format: "%.2f", stats.avgCorpusProgramSize))
-        Avg. program execution time:  \(Int(stats.avgExecutionTime * 1000))ms
-        Connected nodes:              \(stats.numChildNodes)
-        Execs / Second:               \(String(format: "%.2f", stats.execsPerSecond))
-        Fuzzer Overhead:              \(String(format: "%.2f", stats.fuzzerOverhead * 100))%
-        Minimization Overhead:        \(String(format: "%.2f", stats.minimizationOverhead * 100))%
-        Total Execs:                  \(stats.totalExecs)
-        """)
+            -----------------
+            Fuzzer state:                 \(state)
+            Uptime:                       \(formatTimeInterval(fuzzer.uptime()))
+            Distance Guidance Type:       \(distanceGuidanceType)
+            Total Samples:                \(stats.totalSamples)
+            Interesting Samples Found:    \(stats.interestingSamples)
+            Last Interesting Sample:      \(formatTimeInterval(timeSinceLastInterestingProgram))
+            Valid Samples Found:          \(stats.validSamples)
+            Target-Reaching Progress:     \(targetReachingProgress)
+            Target-Reaching Count:        \(targetReachingCountInfo)
+            Per-Target Reaching Count:    \(perTargetReachingCountInfo)
+            Per-Target Selection Count:   \(perTargetSelectionCountInfo)
+            Per-Target Reaching Time:     \(perTargetReachingTimeInfo)
+            Cleanup Stats:                \(cleanupStats)
+            Mutation Selection Stats:     \(mutationSelectionStats)
+            Corpus Size:                  \(fuzzer.corpus.size)\(maybeAvgCorpusSize)
+            Pre-Target  Seeds:            \(preTargetSeedsCount)
+            Post-Target Seeds:            \(postTargetSeedsCount)
+            Pre-Target  Seed Age Stats:   Avg: \(avgPreTargetSeedAge), Max: \(maxPreTargetSeedAge), Min: \(minPreTargetSeedAge), Mid: \(midPreTargetSeedAge)
+            Post-Target Seed Age Stats:   Avg: \(avgPostTargetSeedAge), Max: \(maxPostTargetSeedAge), Min: \(minPostTargetSeedAge), Mid: \(midPostTargetSeedAge)
+            Correctness Rate:             \(String(format: "%.2f%%", stats.correctnessRate * 100)) (overall: \(String(format: "%.2f%%", stats.overallCorrectnessRate * 100)))
+            Timeout Rate:                 \(String(format: "%.2f%%", stats.timeoutRate * 100)) (overall: \(String(format: "%.2f%%", stats.overallTimeoutRate * 100)))
+            Crashes Found:                \(stats.crashingSamples)
+            Timeouts Hit:                 \(stats.timedOutSamples)
+            Coverage:                     \(String(format: "%.2f%%", stats.coverage * 100))
+            Avg. program size:            \(String(format: "%.2f", stats.avgProgramSize))
+            Avg. corpus program size:     \(String(format: "%.2f", stats.avgCorpusProgramSize))
+            Avg. program execution time:  \(Int(stats.avgExecutionTime * 1000))ms
+            Connected nodes:              \(stats.numChildNodes)
+            Execs / Second:               \(String(format: "%.2f", stats.execsPerSecond))
+            Fuzzer Overhead:              \(String(format: "%.2f", stats.fuzzerOverhead * 100))%
+            Minimization Overhead:        \(String(format: "%.2f", stats.minimizationOverhead * 100))%
+            Minimization Success Rate:    \(minimizationSuccessRateGlobal)
+            Minimization Iterations Avg:  \(minimizationIterationAvg)
+            Total Execs:                  \(stats.totalExecs)
+            """)
     }
 
     private func formatTimeInterval(_ interval: TimeInterval) -> String {
@@ -159,23 +263,23 @@ class TerminalUI {
     }
 
     private enum Color: Int {
-        case reset   = 0
-        case black   = 30
-        case red     = 31
-        case green   = 32
-        case yellow  = 33
-        case blue    = 34
+        case reset = 0
+        case black = 30
+        case red = 31
+        case green = 32
+        case yellow = 33
+        case blue = 34
         case magenta = 35
-        case cyan    = 36
-        case white   = 37
+        case cyan = 36
+        case white = 37
     }
 
     // The color with which to print log entries.
     private let colorForLevel: [LogLevel: Color] = [
         .verbose: .cyan,
-        .info:    .white,
+        .info: .white,
         .warning: .yellow,
-        .error:   .red,
-        .fatal:   .magenta
+        .error: .red,
+        .fatal: .magenta,
     ]
 }

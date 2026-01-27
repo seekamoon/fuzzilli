@@ -55,10 +55,6 @@ fileprivate let ForceMaglevCompilationGenerator = CodeGenerator("ForceMaglevComp
     b.callFunction(f, withArgs: arguments)
 }
 
-fileprivate let TurbofanVerifyTypeGenerator = CodeGenerator("TurbofanVerifyTypeGenerator", inputs: .one) { b, v in
-    b.eval("%VerifyType(%@)", with: [v])
-}
-
 fileprivate let WorkerGenerator = RecursiveCodeGenerator("WorkerGenerator") { b in
     let workerSignature = Signature(withParameterCount: Int.random(in: 0...3))
 
@@ -619,10 +615,6 @@ let v8Profile = Profile(
             args.append("--turboshaft-typed-optimizations")
         }
 
-        // if probability(0.1) {
-        //     args.append("--turbolev")
-        // }
-
         if probability(0.1) {
             args.append("--turboshaft_wasm_in_js_inlining")
         }
@@ -741,9 +733,9 @@ let v8Profile = Profile(
     // We typically fuzz without any sanitizer instrumentation, but if any sanitizers are active, "abort_on_error=1" must probably be set so that sanitizer errors can be detected.
     processEnv: [:],
 
-    maxExecsBeforeRespawn: 1000,
+    maxExecsBeforeRespawn: 20000,
 
-    timeout: 250,
+    timeout: 2000,
 
     codePrefix: """
                 """,
@@ -766,8 +758,9 @@ let v8Profile = Profile(
         ("fuzzilli('FUZZILLI_CRASH', 2)", .shouldCrash),
         // Wild-write
         ("fuzzilli('FUZZILLI_CRASH', 3)", .shouldCrash),
-        // Check that DEBUG is defined.
-        ("fuzzilli('FUZZILLI_CRASH', 8)", .shouldCrash),
+        // we comment the following because for the old version of v8, there is no 8
+        // // Check that DEBUG is defined.
+        // ("fuzzilli('FUZZILLI_CRASH', 8)", .shouldCrash),
 
         // TODO we could try to check that OOM crashes are ignored here ( with.shouldNotCrash).
     ],
@@ -776,13 +769,11 @@ let v8Profile = Profile(
         (ForceJITCompilationThroughLoopGenerator,  5),
         (ForceTurboFanCompilationGenerator,        5),
         (ForceMaglevCompilationGenerator,          5),
-        (TurbofanVerifyTypeGenerator,             10),
-
         (WorkerGenerator,                         10),
         (GcGenerator,                             10),
 
-        (WasmStructGenerator,                     15),
-        (WasmArrayGenerator,                      15),
+        // (WasmStructGenerator,                     15),
+        // (WasmArrayGenerator,                      15),
     ],
 
     additionalProgramTemplates: WeightedList<ProgramTemplate>([

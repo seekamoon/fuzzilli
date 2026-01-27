@@ -176,6 +176,76 @@ public struct Fuzzilli_Protobuf_Statistics: @unchecked Sendable {
     set {_uniqueStorage()._timeoutRate = newValue}
   }
 
+  //// The number of samples that reached at least one target (AFLGo directed fuzzing).
+  public var targetReachingSamples: UInt64 {
+    get {return _storage._targetReachingSamples}
+    set {_uniqueStorage()._targetReachingSamples = newValue}
+  }
+
+  //// The average number of pre-target seeds.
+  public var avgPreTargetSeeds: Double {
+    get {return _storage._avgPreTargetSeeds}
+    set {_uniqueStorage()._avgPreTargetSeeds = newValue}
+  }
+
+  //// The average number of post-target seeds.
+  public var avgPostTargetSeeds: Double {
+    get {return _storage._avgPostTargetSeeds}
+    set {_uniqueStorage()._avgPostTargetSeeds = newValue}
+  }
+
+  public var avgPreTargetSeedAge: Double {
+    get {return _storage._avgPreTargetSeedAge}
+    set {_uniqueStorage()._avgPreTargetSeedAge = newValue}
+  }
+
+  public var maxPreTargetSeedAge: UInt64 {
+    get {return _storage._maxPreTargetSeedAge}
+    set {_uniqueStorage()._maxPreTargetSeedAge = newValue}
+  }
+
+  public var minPreTargetSeedAge: UInt64 {
+    get {return _storage._minPreTargetSeedAge}
+    set {_uniqueStorage()._minPreTargetSeedAge = newValue}
+  }
+
+  public var midPreTargetSeedAge: UInt64 {
+    get {return _storage._midPreTargetSeedAge}
+    set {_uniqueStorage()._midPreTargetSeedAge = newValue}
+  }
+
+  public var avgPostTargetSeedAge: Double {
+    get {return _storage._avgPostTargetSeedAge}
+    set {_uniqueStorage()._avgPostTargetSeedAge = newValue}
+  }
+
+  public var maxPostTargetSeedAge: UInt64 {
+    get {return _storage._maxPostTargetSeedAge}
+    set {_uniqueStorage()._maxPostTargetSeedAge = newValue}
+  }
+
+  public var minPostTargetSeedAge: UInt64 {
+    get {return _storage._minPostTargetSeedAge}
+    set {_uniqueStorage()._minPostTargetSeedAge = newValue}
+  }
+
+  public var midPostTargetSeedAge: UInt64 {
+    get {return _storage._midPostTargetSeedAge}
+    set {_uniqueStorage()._midPostTargetSeedAge = newValue}
+  }
+
+  //// The success rate of minimizations for the last 1000 interesting samples.
+  public var minimizationSuccessRate: Double {
+    get {return _storage._minimizationSuccessRate}
+    set {_uniqueStorage()._minimizationSuccessRate = newValue}
+  }
+
+  //// The average minimization iterations over the last 1000 samples.
+  public var minimizationIterationAvg: Double {
+    get {return _storage._minimizationIterationAvg}
+    set {_uniqueStorage()._minimizationIterationAvg = newValue}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -301,6 +371,19 @@ extension Fuzzilli_Protobuf_Statistics: SwiftProtobuf.Message, SwiftProtobuf._Me
     15: .same(proto: "coverage"),
     16: .same(proto: "correctnessRate"),
     17: .same(proto: "timeoutRate"),
+    18: .same(proto: "targetReachingSamples"),
+    19: .same(proto: "avgPreTargetSeeds"),
+    20: .same(proto: "avgPostTargetSeeds"),
+    21: .same(proto: "avgPreTargetSeedAge"),
+    22: .same(proto: "maxPreTargetSeedAge"),
+    23: .same(proto: "minPreTargetSeedAge"),
+    24: .same(proto: "midPreTargetSeedAge"),
+    25: .same(proto: "avgPostTargetSeedAge"),
+    26: .same(proto: "maxPostTargetSeedAge"),
+    27: .same(proto: "minPostTargetSeedAge"),
+    28: .same(proto: "midPostTargetSeedAge"),
+    29: .same(proto: "minimizationSuccessRate"),
+    30: .same(proto: "minimizationIterationAvg"),
   ]
 
   fileprivate class _StorageClass {
@@ -321,6 +404,19 @@ extension Fuzzilli_Protobuf_Statistics: SwiftProtobuf.Message, SwiftProtobuf._Me
     var _coverage: Double = 0
     var _correctnessRate: Double = 0
     var _timeoutRate: Double = 0
+    var _targetReachingSamples: UInt64 = 0
+    var _avgPreTargetSeeds: Double = 0
+    var _avgPostTargetSeeds: Double = 0
+    var _avgPreTargetSeedAge: Double = 0
+    var _maxPreTargetSeedAge: UInt64 = 0
+    var _minPreTargetSeedAge: UInt64 = 0
+    var _midPreTargetSeedAge: UInt64 = 0
+    var _avgPostTargetSeedAge: Double = 0
+    var _maxPostTargetSeedAge: UInt64 = 0
+    var _minPostTargetSeedAge: UInt64 = 0
+    var _midPostTargetSeedAge: UInt64 = 0
+    var _minimizationSuccessRate: Double = 0
+    var _minimizationIterationAvg: Double = 0
 
     #if swift(>=5.10)
       // This property is used as the initial default value for new instances of the type.
@@ -352,6 +448,19 @@ extension Fuzzilli_Protobuf_Statistics: SwiftProtobuf.Message, SwiftProtobuf._Me
       _coverage = source._coverage
       _correctnessRate = source._correctnessRate
       _timeoutRate = source._timeoutRate
+      _targetReachingSamples = source._targetReachingSamples
+      _avgPreTargetSeeds = source._avgPreTargetSeeds
+      _avgPostTargetSeeds = source._avgPostTargetSeeds
+      _avgPreTargetSeedAge = source._avgPreTargetSeedAge
+      _maxPreTargetSeedAge = source._maxPreTargetSeedAge
+      _minPreTargetSeedAge = source._minPreTargetSeedAge
+      _midPreTargetSeedAge = source._midPreTargetSeedAge
+      _avgPostTargetSeedAge = source._avgPostTargetSeedAge
+      _maxPostTargetSeedAge = source._maxPostTargetSeedAge
+      _minPostTargetSeedAge = source._minPostTargetSeedAge
+      _midPostTargetSeedAge = source._midPostTargetSeedAge
+      _minimizationSuccessRate = source._minimizationSuccessRate
+      _minimizationIterationAvg = source._minimizationIterationAvg
     }
   }
 
@@ -387,6 +496,19 @@ extension Fuzzilli_Protobuf_Statistics: SwiftProtobuf.Message, SwiftProtobuf._Me
         case 15: try { try decoder.decodeSingularDoubleField(value: &_storage._coverage) }()
         case 16: try { try decoder.decodeSingularDoubleField(value: &_storage._correctnessRate) }()
         case 17: try { try decoder.decodeSingularDoubleField(value: &_storage._timeoutRate) }()
+        case 18: try { try decoder.decodeSingularUInt64Field(value: &_storage._targetReachingSamples) }()
+        case 19: try { try decoder.decodeSingularDoubleField(value: &_storage._avgPreTargetSeeds) }()
+        case 20: try { try decoder.decodeSingularDoubleField(value: &_storage._avgPostTargetSeeds) }()
+        case 21: try { try decoder.decodeSingularDoubleField(value: &_storage._avgPreTargetSeedAge) }()
+        case 22: try { try decoder.decodeSingularUInt64Field(value: &_storage._maxPreTargetSeedAge) }()
+        case 23: try { try decoder.decodeSingularUInt64Field(value: &_storage._minPreTargetSeedAge) }()
+        case 24: try { try decoder.decodeSingularUInt64Field(value: &_storage._midPreTargetSeedAge) }()
+        case 25: try { try decoder.decodeSingularDoubleField(value: &_storage._avgPostTargetSeedAge) }()
+        case 26: try { try decoder.decodeSingularUInt64Field(value: &_storage._maxPostTargetSeedAge) }()
+        case 27: try { try decoder.decodeSingularUInt64Field(value: &_storage._minPostTargetSeedAge) }()
+        case 28: try { try decoder.decodeSingularUInt64Field(value: &_storage._midPostTargetSeedAge) }()
+        case 29: try { try decoder.decodeSingularDoubleField(value: &_storage._minimizationSuccessRate) }()
+        case 30: try { try decoder.decodeSingularDoubleField(value: &_storage._minimizationIterationAvg) }()
         default: break
         }
       }
@@ -446,6 +568,45 @@ extension Fuzzilli_Protobuf_Statistics: SwiftProtobuf.Message, SwiftProtobuf._Me
       if _storage._timeoutRate.bitPattern != 0 {
         try visitor.visitSingularDoubleField(value: _storage._timeoutRate, fieldNumber: 17)
       }
+      if _storage._targetReachingSamples != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._targetReachingSamples, fieldNumber: 18)
+      }
+      if _storage._avgPreTargetSeeds.bitPattern != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._avgPreTargetSeeds, fieldNumber: 19)
+      }
+      if _storage._avgPostTargetSeeds.bitPattern != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._avgPostTargetSeeds, fieldNumber: 20)
+      }
+      if _storage._avgPreTargetSeedAge.bitPattern != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._avgPreTargetSeedAge, fieldNumber: 21)
+      }
+      if _storage._maxPreTargetSeedAge != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._maxPreTargetSeedAge, fieldNumber: 22)
+      }
+      if _storage._minPreTargetSeedAge != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._minPreTargetSeedAge, fieldNumber: 23)
+      }
+      if _storage._midPreTargetSeedAge != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._midPreTargetSeedAge, fieldNumber: 24)
+      }
+      if _storage._avgPostTargetSeedAge.bitPattern != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._avgPostTargetSeedAge, fieldNumber: 25)
+      }
+      if _storage._maxPostTargetSeedAge != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._maxPostTargetSeedAge, fieldNumber: 26)
+      }
+      if _storage._minPostTargetSeedAge != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._minPostTargetSeedAge, fieldNumber: 27)
+      }
+      if _storage._midPostTargetSeedAge != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._midPostTargetSeedAge, fieldNumber: 28)
+      }
+      if _storage._minimizationSuccessRate.bitPattern != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._minimizationSuccessRate, fieldNumber: 29)
+      }
+      if _storage._minimizationIterationAvg.bitPattern != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._minimizationIterationAvg, fieldNumber: 30)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -472,6 +633,19 @@ extension Fuzzilli_Protobuf_Statistics: SwiftProtobuf.Message, SwiftProtobuf._Me
         if _storage._coverage != rhs_storage._coverage {return false}
         if _storage._correctnessRate != rhs_storage._correctnessRate {return false}
         if _storage._timeoutRate != rhs_storage._timeoutRate {return false}
+        if _storage._targetReachingSamples != rhs_storage._targetReachingSamples {return false}
+        if _storage._avgPreTargetSeeds != rhs_storage._avgPreTargetSeeds {return false}
+        if _storage._avgPostTargetSeeds != rhs_storage._avgPostTargetSeeds {return false}
+        if _storage._avgPreTargetSeedAge != rhs_storage._avgPreTargetSeedAge {return false}
+        if _storage._maxPreTargetSeedAge != rhs_storage._maxPreTargetSeedAge {return false}
+        if _storage._minPreTargetSeedAge != rhs_storage._minPreTargetSeedAge {return false}
+        if _storage._midPreTargetSeedAge != rhs_storage._midPreTargetSeedAge {return false}
+        if _storage._avgPostTargetSeedAge != rhs_storage._avgPostTargetSeedAge {return false}
+        if _storage._maxPostTargetSeedAge != rhs_storage._maxPostTargetSeedAge {return false}
+        if _storage._minPostTargetSeedAge != rhs_storage._minPostTargetSeedAge {return false}
+        if _storage._midPostTargetSeedAge != rhs_storage._midPostTargetSeedAge {return false}
+        if _storage._minimizationSuccessRate != rhs_storage._minimizationSuccessRate {return false}
+        if _storage._minimizationIterationAvg != rhs_storage._minimizationIterationAvg {return false}
         return true
       }
       if !storagesAreEqual {return false}

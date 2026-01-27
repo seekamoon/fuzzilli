@@ -73,6 +73,11 @@ public struct Configuration {
     // differential fuzzers can inspect (via mutating the JS program to print defined variables).
     public let forDifferentialFuzzing: Bool
 
+    /// The start time of the entire fuzzing session, in milliseconds since epoch.
+    /// This is set once at program startup and shared across all fuzzer instances.
+    /// Used to calculate the elapsed time since fuzzing started.
+    public let fuzzingStartTime: UInt64
+
     // The subdirectory in {config.storagePath} at which all programs are stored which could not
     // be imported due to disabled wasm capabilities in the fuzzer.
     public static let excludedWasmDirectory = "excluded_wasm_programs"
@@ -91,7 +96,8 @@ public struct Configuration {
                 tag: String? = nil,
                 isWasmEnabled: Bool = false,
                 storagePath: String? = nil,
-                forDifferentialFuzzing: Bool = false) {
+                forDifferentialFuzzing: Bool = false,
+                fuzzingStartTime: UInt64 = 0) {
         self.arguments = arguments
         self.timeout = timeout
         self.logLevel = logLevel
@@ -106,6 +112,7 @@ public struct Configuration {
         self.isWasmEnabled = isWasmEnabled
         self.storagePath = storagePath
         self.forDifferentialFuzzing = forDifferentialFuzzing
+        self.fuzzingStartTime = fuzzingStartTime
     }
 }
 

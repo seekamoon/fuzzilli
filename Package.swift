@@ -39,12 +39,18 @@ let package = Package(
                 cSettings: [.unsafeFlags(["-O3"])],     // Using '-c release' when building uses '-O2', so '-O3' provides a performance gain
                 linkerSettings: [.linkedLibrary("rt", .when(platforms: [.linux]))]),
 
+        .target(name: "libdistance",
+                dependencies: [],
+                cSettings: [.unsafeFlags(["-O3"])],
+                linkerSettings: [.linkedLibrary("rt", .when(platforms: [.linux]))]),
+
         .target(name: "Fuzzilli",
                 dependencies: [
                     .product(name: "SwiftProtobuf", package: "swift-protobuf"),
                     "libsocket",
                     "libreprl",
-                    "libcoverage"],
+                    "libcoverage",
+                    "libdistance"],
                 exclude: [
                     "Protobuf/operations.proto",
                     "Protobuf/program.proto",

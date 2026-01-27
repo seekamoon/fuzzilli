@@ -111,6 +111,13 @@ public class Fuzzer {
         return -startTime.timeIntervalSinceNow
     }
 
+    /// The start time of the entire fuzzing session, in milliseconds since epoch.
+    /// This is shared across all fuzzer instances and represents when the entire fuzzing process began.
+    /// Useful for calculating elapsed time since the fuzzing campaign started.
+    public var fuzzingStartTime: UInt64 {
+        return config.fuzzingStartTime
+    }
+
     /// The modules active on this fuzzer.
     var modules = [String: Module]()
 
@@ -682,8 +689,8 @@ public class Fuzzer {
         // Determine which (if any) aspects of the program are triggered deterministially.
         // For that, the sample is executed at a few more times and the intersection of the interesting aspects of each execution is computed.
         // Once that intersection is stable, the remaining aspects are considered to be triggered deterministic.
-        let minAttempts = 5
-        let maxAttempts = 50
+        let minAttempts = 3
+        let maxAttempts = 10
         var didConverge = false
         var attempt = 0
         repeat {
@@ -718,6 +725,31 @@ public class Fuzzer {
                     program.comments.add("Imported program is interesting due to \(aspects)", at: .footer)
                 }
             }
+
+            if let covEdgeSetWithDistance = aspects as? CovEdgeSetWithDistance {
+                // for AFLGoCorpus, we need to add the target-reaching information to the program comments
+                let reachedTargetContexts = covEdgeSetWithDistance.reachedTargetContexts
+                // iterate over the reachedTargets and add comments for each target
+                // if the target is not in the reachedTargets, it means the target hasn't been reached yet
+                // we also need to add the target ID to the comment
+                var targetInfo = "REACHED TARGETS: "
+                // iterate over the reachedTargetContexts and add comments for each target
+                for (targetID, contexts) in reachedTargetContexts.sorted(by: { $0.key < $1.key }) {
+                    targetInfo += "[\(targetID): \(contexts.count)] "
+                }
+                
+                // if let footer = program.comments.at(.footer) {
+                //     let lines = footer.split(separator: "\n", omittingEmptySubsequences: false)
+                //     let filteredLines = lines.filter { !$0.hasPrefix("REACHED TARGETS: ") }
+                //     program.comments.set(filteredLines.joined(separator: "\n"), at: .footer)
+                // }
+                if origin == .local {
+                    program.comments.add("Local: " + targetInfo, at: .footer)
+                } else {
+                    program.comments.add("Imported: " + targetInfo, at: .footer)
+                }
+            }
+
             assert(!program.code.contains(where: { $0.op is JsInternalOperation }))
             dispatchEvent(events.InterestingProgramFound, data: (program, origin))
 
@@ -760,6 +792,34 @@ public class Fuzzer {
                 program.comments.add("TARGET ARGS: \(runner.processArguments.joined(separator: " "))", at: .footer)
                 program.comments.add("CONTRIBUTORS: \(program.contributors.map({ $0.name }).joined(separator: ", "))", at: .footer)
                 program.comments.add("EXECUTION TIME: \(Int(exectime * 1000))ms", at: .footer)
+                let timeConsumedMS = currentMillis() - fuzzingStartTime
+                // convert the milliseconds to hours
+                let timeConsumedHours = Double(timeConsumedMS) / 3600000
+                program.comments.add("DISCOVERED TIME: \(String(format: "%.4f", timeConsumedHours)) hours since fuzzing started", at: .footer)
+                
+                // If using AFLGo corpus, also add the time when targets were first reached
+                if let aflgoCorpus = corpus as? AFLGoCorpus {
+                    let targetReachedTimes = aflgoCorpus.getFirstTargetReachingTime()
+                    // iterate over the targetReachedTimes and add comments for each target
+                    // if the time is 0, it means the target hasn't been reached yet
+                    // we also need to add the target ID to the comment
+                    var targetInfo = "REACHED TARGETS: "
+                    for (idx, time) in targetReachedTimes.enumerated() {
+                        if time > 0 {
+                            let hours = Double(time) / 3600000.0
+                            targetInfo += "[\(idx): \(String(format: "%.4f", hours))h] "
+                        } else {
+                            targetInfo += "[\(idx): N/A] "
+                        }
+                    }
+                    
+                    if let footer = program.comments.at(.footer) {
+                        let lines = footer.split(separator: "\n", omittingEmptySubsequences: false)
+                        let filteredLines = lines.filter { !$0.hasPrefix("REACHED TARGETS: ") }
+                        program.comments.set(filteredLines.joined(separator: "\n"), at: .footer)
+                    }
+                    program.comments.add(targetInfo, at: .footer)
+                }
             }
             assert(program.comments.at(.footer)?.contains("CRASH INFO") ?? false)
 

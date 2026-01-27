@@ -17,8 +17,8 @@ import libcoverage
 
 /// Represents a set of newly discovered CFG edges in the target program.
 public class CovEdgeSet: ProgramAspects {
-    private var numEdges: UInt32
-    fileprivate var edges: UnsafeMutablePointer<UInt32>?
+    internal var numEdges: UInt32
+    internal var edges: UnsafeMutablePointer<UInt32>?
 
     init(edges: UnsafeMutablePointer<UInt32>?, numEdges: UInt32) {
         self.numEdges = numEdges
@@ -43,6 +43,7 @@ public class CovEdgeSet: ProgramAspects {
     ///
     /// This adds additional copies, but is only hit when new programs are added to the corpus
     /// It is used by corpus schedulers such as MarkovCorpus that require knowledge of which samples trigger which edges
+    /// It will return an array containing the index of the newly discovered edges
     public func getEdges() -> [UInt32] {
         return Array(UnsafeBufferPointer(start: edges, count: Int(count)))
     }
@@ -59,7 +60,7 @@ public class CovEdgeSet: ProgramAspects {
     }
 
     // Updates the internal state to match the provided collection
-    fileprivate func setEdges<T: Collection>(_ collection: T) where T.Element == UInt32 {
+    internal func setEdges<T: Collection>(_ collection: T) where T.Element == UInt32 {
         precondition(collection.count <= self.count)
         self.numEdges = UInt32(collection.count)
         for (i, edge) in collection.enumerated() {
@@ -70,26 +71,26 @@ public class CovEdgeSet: ProgramAspects {
 
 public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
     /// Counts the number of instances. Used to create unique shared memory regions in every instance.
-    private static var instances = 0
-
+    internal static var instances = 0
+    
     /// Whether per-edge hit counts should be tracked as well.
     /// These are expensive to compute, so this need to be enabled explicitly.
-    private var shouldTrackEdgeCounts : Bool
-
+    internal var shouldTrackEdgeCounts : Bool
+    
     /// Keep track of how often an edge has been reset. Frequently set/cleared edges will be ignored
-    private var resetCounts : [UInt32:UInt64] = [:]
-
+    internal var resetCounts : [UInt32:UInt64] = [:]
+    
     /// How often an edge may be reset at most before it is considered non-deterministic.
     /// In that case, the edge is marked as found, but will not be considered an aspect of any program.
-    private let maxResetCount : UInt64 = 1000
-
+    internal let maxResetCount : UInt64 = 1000
+    
     /// The current edge coverage percentage.
     public var currentScore: Double {
         return Double(context.found_edges) / Double(context.num_edges)
     }
-
+    
     /// Context for the C library.
-    private var context = libcoverage.cov_context()
+    internal var context = libcoverage.cov_context()
 
     public init(runner: ScriptRunner) {
         // In order to keep clean abstractions, any corpus scheduler requiring edge counting
@@ -214,6 +215,7 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
         }
 
         // Mark all edges in the provided aspects as undiscovered so they can be retriggered during the next execution.
+        // this will not change the content of firstCovEdgeSet, but will reset the low level edge counts
         resetAspects(firstCovEdgeSet)
 
         // Execute the program and collect coverage information.
@@ -226,6 +228,7 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
 
         // Reset all edges that were only triggered by the 2nd execution (those only triggered by the 1st execution were already reset earlier).
         for edge in secondEdgeSet.subtracting(firstEdgeSet) {
+            // edge is in secondEdgeSet but not in firstEdgeSet
             resetEdge(edge)
         }
 
@@ -283,14 +286,14 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
 
 
     // TODO See if we want to count the number of non-deterministic edges and expose them through the fuzzer statistics (if deterministic mode is enabled)
-    private func resetEdge(_ edge: UInt32) {
+    internal func resetEdge(_ edge: UInt32) {
         resetCounts[edge] = (resetCounts[edge] ?? 0) + 1
         if resetCounts[edge]! <= maxResetCount {
             libcoverage.cov_clear_edge_data(&context, edge)
         }
     }
 
-    private func resetAspects(_ aspects: CovEdgeSet) {
+    internal func resetAspects(_ aspects: CovEdgeSet) {
         for i in 0..<Int(aspects.count) {
             resetEdge(aspects.edges![i])
         }

@@ -13,6 +13,6 @@ Cloud/GCE/config.sh
 # node.js dependencies, used by the JavaScript parser for the FuzzIL compiler
 node_modules
 package-lock.json
-Fuzzdata/
+Fuzzdata*/
 *.js
 *.fzil

@@ -82,4 +82,30 @@ message Statistics {
 
         /// The timeout rate of recently generated programs (number of timeouts divided by number of generated programs).
         double timeoutRate = 17;
+
+        /// The number of samples that reached at least one target (AFLGo directed fuzzing).
+        uint64 targetReachingSamples = 18;
+
+        /// The average number of pre-target seeds.
+        double avgPreTargetSeeds = 19;
+
+        /// The average number of post-target seeds.
+        double avgPostTargetSeeds = 20;
+
+        double avgPreTargetSeedAge = 21;
+        uint64 maxPreTargetSeedAge = 22;
+        uint64 minPreTargetSeedAge = 23;
+        uint64 midPreTargetSeedAge = 24;
+
+        double avgPostTargetSeedAge = 25;
+        uint64 maxPostTargetSeedAge = 26;
+        uint64 minPostTargetSeedAge = 27;
+        uint64 midPostTargetSeedAge = 28;
+
+        /// The success rate of minimizations for the last 1000 interesting samples.
+        double minimizationSuccessRate = 29;
+
+        /// The average minimization iterations over the last 1000 samples.
+        double minimizationIterationAvg = 30;
+
 }

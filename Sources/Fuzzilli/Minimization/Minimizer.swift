@@ -44,15 +44,16 @@ public class Minimizer: ComponentBase {
     /// Once minimization is finished, the passed block will be invoked on the fuzzer's queue with the minimized program.
     func withMinimizedCopy(_ program: Program, withAspects aspects: ProgramAspects, limit minimizationLimit: Double = 0.0, block: @escaping (Program) -> ()) {
         minimizationQueue.async {
-            let minimizedCode = self.internalMinimize(program, withAspects: aspects, limit: minimizationLimit, performPostprocessing: true, runningSynchronously: false)
+            let result = self.internalMinimize(program, withAspects: aspects, limit: minimizationLimit, performPostprocessing: true, runningSynchronously: false)
             self.fuzzer.async {
                 let minimizedProgram: Program
                 if self.fuzzer.config.enableInspection {
-                    minimizedProgram = Program(code: minimizedCode, parent: program, contributors: program.contributors)
+                    minimizedProgram = Program(code: result.code, parent: program, contributors: program.contributors)
                     minimizedProgram.comments.add("Minimizing \(program.id)", at: .header)
                 } else {
-                    minimizedProgram = Program(code: minimizedCode, contributors: program.contributors)
+                    minimizedProgram = Program(code: result.code, contributors: program.contributors)
                 }
+                self.fuzzer.dispatchEvent(self.fuzzer.events.MinimizationFinished, data: (result.success, result.iterations))
                 block(minimizedProgram)
             }
         }
@@ -60,11 +61,17 @@ public class Minimizer: ComponentBase {
 
     /// Synchronous version of withMinimizedCopy. Should only be used for tests since it otherwise blocks the fuzzer queue.
     func minimize(_ program: Program, withAspects aspects: ProgramAspects, limit minimizationLimit: Double = 0.0, performPostprocessing: Bool = true) -> Program {
-        let minimizedCode = internalMinimize(program, withAspects: aspects, limit: minimizationLimit, performPostprocessing: performPostprocessing, runningSynchronously: true)
-        return Program(code: minimizedCode, parent: program, contributors: program.contributors)
+        let result = internalMinimize(program, withAspects: aspects, limit: minimizationLimit, performPostprocessing: performPostprocessing, runningSynchronously: true)
+        return Program(code: result.code, parent: program, contributors: program.contributors)
     }
 
-    private func internalMinimize(_ program: Program, withAspects aspects: ProgramAspects, limit minimizationLimit: Double, performPostprocessing: Bool, runningSynchronously: Bool) -> Code {
+    private struct MinimizationResult {
+        let code: Code
+        let success: Bool
+        let iterations: Int
+    }
+
+    private func internalMinimize(_ program: Program, withAspects aspects: ProgramAspects, limit minimizationLimit: Double, performPostprocessing: Bool, runningSynchronously: Bool) -> MinimizationResult {
         assert(program.code.countIntructionsWith(flags: .notRemovable) == 0)
 
         let helper = MinimizationHelper(for: aspects, forCode: program.code, of: fuzzer, runningOnFuzzerQueue: runningSynchronously)
@@ -73,6 +80,7 @@ public class Minimizer: ComponentBase {
 
         assert(helper.code.countIntructionsWith(flags: .notRemovable) >= helper.numKeptInstructions)
 
+        var minimizationSuccessful = true
         var iterations = 0
         repeat {
             helper.didReduce = false
@@ -105,6 +113,7 @@ public class Minimizer: ComponentBase {
             guard iterations < 100 else {
                 // This can happen if a reducer performs a no-op change in every iteration, e.g. replacing one instruction with the same instruction. This is considered a bug since it leads to this kind of issue.
                 logger.error("Fixpoint iteration for program minimization did not converge after 100 iterations for program:\n\(FuzzILLifter().lift(helper.code)). Aborting minimization.")
+                minimizationSuccessful = false
                 break
             }
         } while helper.didReduce
@@ -127,6 +136,6 @@ public class Minimizer: ComponentBase {
         assert(helper.code.isStaticallyValid())
         assert(!helper.code.contains(where: { $0.isNop }))
 
-        return helper.finalize()
+        return MinimizationResult(code: helper.finalize(), success: minimizationSuccessful, iterations: iterations)
     }
 }
