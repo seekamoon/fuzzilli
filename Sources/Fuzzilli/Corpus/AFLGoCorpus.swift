@@ -84,6 +84,10 @@ public class AFLGoCorpus: ComponentBase, Collection, Corpus {
     /// Key: target ID, Value: number of samples that reached this target
     private var targetReachedCount: [UInt32: UInt32] = [:]
 
+    /// Counts how many pre-target seeds have known distance to each target
+    /// Key: target ID, Value: number of pre-target seeds with known distance (d >= 0)
+    private var preTargetKnownDistanceCount: [UInt32: Int] = [:]
+
     /// Counts how many times each target was selected by selectTargetBasedOnRarity
     private var targetSelectionCount: [UInt32: UInt32] = [:]
 
@@ -317,6 +321,13 @@ public class AFLGoCorpus: ComponentBase, Collection, Corpus {
                 // Store per-target distances (instead of computing weights for each target), O(1)
                 self.preTargetPerTargetDistances.append(perTargetDistances)
 
+                // Update preTargetKnownDistanceCount for each target with known distance
+                for (idx, distance) in perTargetDistances.enumerated() {
+                    if distance >= 0 {
+                        preTargetKnownDistanceCount[UInt32(idx), default: 0] += 1
+                    }
+                }
+
                 // Incrementally update cumulative harmonic weight cache if valid, O(1)
                 if harmonicWeightsCacheValid && preTargetSeeds.count == lastCachedPreTargetCount + 1
                 {
@@ -383,6 +394,7 @@ public class AFLGoCorpus: ComponentBase, Collection, Corpus {
             var selectedIdx = -1
 
             if guidedByTargetSpecificDistance, let targetId = selectTargetBasedOnRarity() {
+                // Now we have selected a target to focus on
                 // Update target selection count
                 targetSelectionCount[targetId, default: 0] += 1
 
@@ -460,6 +472,7 @@ public class AFLGoCorpus: ComponentBase, Collection, Corpus {
         postTargetMutationBudgets.removeAll()
         postTargetRequiredTargets.removeAll()
         targetReachedCount.removeAll()
+        preTargetKnownDistanceCount.removeAll()
         currentMutationRequiredTargets = nil
 
         // Invalidate caches
@@ -524,13 +537,15 @@ public class AFLGoCorpus: ComponentBase, Collection, Corpus {
         var targets = [UInt32]()
         targets.reserveCapacity(numTargets)
 
+        let k: UInt32 = 100
+
         for i in 0..<numTargets {
             let targetId = UInt32(i)
             let count = targetReachedCount[targetId] ?? 0
-            // Weight = 1.0 / (count + 1)
+            // Weight = 1.0 / (count + k)
             // Targets with 0 count get weight 1.0
             // Targets with high count get lower weight
-            weights.append(1.0 / Double(count + 1))
+            weights.append(1.0 / Double(count + k))
             targets.append(targetId)
         }
 
@@ -567,24 +582,33 @@ public class AFLGoCorpus: ComponentBase, Collection, Corpus {
             return
         }
 
+        let k = 1.0  // smoothing parameter for distance weight
+        let alpha = 1.0  // maximum weight for unknown-distance seeds
+
+        // O(1) calculation of r(t*) using preTargetKnownDistanceCount
+        let knownCount = preTargetKnownDistanceCount[targetId] ?? 0
+        let totalCount = preTargetPerTargetDistances.count
+        let r_t = totalCount > 0 ? Double(knownCount) / Double(totalCount) : 0.0
+
+        // epsilon(t*) = alpha * (1 - r(t*))
+        // When distance info is sparse (r_t small), epsilon is large -> encourage exploration
+        // When distance info is abundant (r_t large), epsilon is small -> inverse-distance dominates
+        let epsilon_t = alpha * (1.0 - r_t)
+
         // Rebuild cumulative weights for this target from distances
         var cumWeights = [Double]()
-        cumWeights.reserveCapacity(preTargetPerTargetDistances.count)
+        cumWeights.reserveCapacity(totalCount)
 
         var cumSum = 0.0
-        for i in 0..<preTargetPerTargetDistances.count {
+        for i in 0..<totalCount {
             let distances = preTargetPerTargetDistances[i]
-            let targetIdx = Int(targetId)
             let weight: Double
-            if targetIdx < distances.count {
-                let d = distances[targetIdx]
-                if d < 0 {
-                    weight = 0.0001
-                } else {
-                    weight = 100.0 / (d + 1.0)
-                }
+            if Int(targetId) < distances.count && distances[Int(targetId)] >= 0 {
+                // Known distance: use inverse-distance weight
+                weight = 1.0 / (distances[Int(targetId)] + k)
             } else {
-                weight = 0.0001  // No distance info for this target
+                // Unknown distance: use dynamic epsilon(t*)
+                weight = epsilon_t
             }
             cumSum += weight
             cumWeights.append(cumSum)
@@ -699,6 +723,17 @@ public class AFLGoCorpus: ComponentBase, Collection, Corpus {
         postTargetMutationBudgets = newPostTargetMutationBudgets
         postTargetRequiredTargets = newPostTargetRequiredTargets
         postTargetRarityScores = newPostTargetRarityScores
+
+        // Rebuild preTargetKnownDistanceCount from the new preTargetPerTargetDistances
+        preTargetKnownDistanceCount.removeAll()
+        for i in 0..<preTargetPerTargetDistances.count {
+            let distances = preTargetPerTargetDistances[i]
+            for (idx, distance) in distances.enumerated() {
+                if distance >= 0 {
+                    preTargetKnownDistanceCount[UInt32(idx), default: 0] += 1
+                }
+            }
+        }
 
         // Invalidate caches after cleanup
         harmonicWeightsCacheValid = false

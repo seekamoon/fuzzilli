@@ -463,7 +463,8 @@ func makeFuzzer(with configuration: Configuration) -> Fuzzer {
             }
             processEnv[String(parts[0])] = String(parts[1])
         }
-        logger.info("Using the following environment variables for the target engine: \(processEnv)")
+        logger.info(
+            "Using the following environment variables for the target engine: \(processEnv)")
     }
 
     let runner = REPRL(
